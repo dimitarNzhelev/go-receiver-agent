@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
-
-	"github.com/go-sql-driver/mysql"
 )
 
 // AlertHandler processes incoming alert requests.
@@ -35,19 +32,25 @@ func AlertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var dorisClient *DorisClient
+var redshiftClient *RedshiftClient
 
 // NB! this init function is called when the package is loaded
 func init() {
-	log.Println("Initializing Doris client...")
-	mysql.SetLogger(log.New(os.Stdout, "[mysql] ", log.Ldate|log.Ltime|log.Lshortfile))
+	log.Println("Initializing Redshift client...")
 
-	client, err := NewDorisClient()
+	client, err := NewRedshiftClient()
 	if err != nil {
-		log.Fatalf("Failed to initialize Doris client: %v", err)
+		log.Fatalf("Failed to initialize Redshift client: %v", err)
 	}
-	dorisClient = client
-	log.Println("Doris client initialized successfully")
+	redshiftClient = client
+	log.Println("Redshift client initialized successfully")
+
+	err_ := redshiftClient.createTableIfNotExists()
+
+	if err_ != nil {
+		log.Fatalf("Failed to create table: %v", err_)
+	}
+
 }
 
 // processAlert handles individual alert and proccesses it.
@@ -55,7 +58,7 @@ func processAlert(alert Alert) {
 	log.Printf("Processing alert: %s", alert.Labels["alertname"])
 
 	// Save alert to Apache Doris
-	if err := dorisClient.SaveAlert(alert); err != nil {
+	if err := redshiftClient.SaveAlert(alert); err != nil {
 		log.Printf("Failed to save alert to Doris: %v", err)
 		return
 	}
