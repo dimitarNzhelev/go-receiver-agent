@@ -18,12 +18,6 @@ type RedshiftClient struct {
 
 // NewRedshiftClient creates a new AWS Redshift client
 func NewRedshiftClient() (*RedshiftClient, error) {
-	// host := "dzhelev-test-cluster-redshift.cs6ir1smkzux.eu-central-1.redshift.amazonaws.com"
-	// port := "5439"
-	// user := "adminuser"
-	// password := "StrongPassword123"
-	// database := "alertsdb"
-	// sslmode := "disable"
 
 	host := os.Getenv("REDSHIFT_HOST")
 	port := os.Getenv("REDSHIFT_PORT")
@@ -105,6 +99,17 @@ func (c *RedshiftClient) SaveAlert(alert Alert) error {
 		string(annotationsStr),
 	)
 	if err != nil {
+		if err.Error() == "pq: Value too long for character type" {
+			log.Printf("Value too long for character type. Alert details: Status=%s, AlertName=%s, StartsAt=%s, EndsAt=%s, GeneratorURL=%s, Fingerprint=%s, Labels=%s, Annotations=%s",
+				alert.Status,
+				alert.Labels["alertname"],
+				alert.StartsAt,
+				alert.EndsAt,
+				alert.GeneratorURL,
+				alert.Fingerprint,
+				string(labelsStr),
+				string(annotationsStr))
+		}
 		return fmt.Errorf("failed to save alert: %v", err)
 	}
 
@@ -115,14 +120,14 @@ func (c *RedshiftClient) createTableIfNotExists() error {
 	query := `
         CREATE TABLE IF NOT EXISTS alerts (
 			id BIGINT IDENTITY(1,1) PRIMARY KEY,
-			status VARCHAR(50) NOT NULL,
+			status VARCHAR(255) NOT NULL,
 			alert_name VARCHAR(255) NOT NULL,
 			start_time TIMESTAMP NOT NULL,
 			end_time TIMESTAMP,
-			generator_url VARCHAR(512),
+			generator_url VARCHAR(1024),
 			fingerprint VARCHAR(255) UNIQUE,
-			labels VARCHAR(255),
-			annotations VARCHAR(255)
+			labels VARCHAR(4096),
+			annotations VARCHAR(4096)
 		);
     `
 

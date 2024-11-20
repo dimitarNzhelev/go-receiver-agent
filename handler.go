@@ -59,7 +59,7 @@ func processAlert(alert Alert) {
 
 	// Save alert to Apache Doris
 	if err := redshiftClient.SaveAlert(alert); err != nil {
-		log.Printf("Failed to save alert to Doris: %v", err)
+		log.Printf("Failed to save alert to Redshift Client: %v", err)
 		return
 	}
 
