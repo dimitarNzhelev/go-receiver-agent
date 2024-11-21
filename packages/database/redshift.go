@@ -142,27 +142,32 @@ func (c *RedshiftClient) CreateTableIfNotExists() error {
 }
 
 // GetAlerts returns all alerts from AWS Redshift
-func (c *RedshiftClient) GetAlerts() ([]models.Alert, error) {
-	query := "SELECT * FROM alerts;"
-
+func (c *RedshiftClient) GetAlerts() ([]models.AlertResponse, error) {
+	query := `SELECT id, alert_name, status, labels, annotations, start_time, end_time, generator_url, fingerprint FROM alerts`
 	rows, err := c.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve alerts: %v", err)
 	}
 	defer rows.Close()
 
-	var alerts []models.Alert
+	var alerts []models.AlertResponse
 	for rows.Next() {
-		var alert models.Alert
-		// Scan the row into the alert object
-		if err := rows.Scan(&alert.Status, &alert.Labels, &alert.Annotations, &alert.StartsAt, &alert.EndsAt, &alert.GeneratorURL, &alert.Fingerprint); err != nil {
-			return nil, fmt.Errorf("failed to scan alert: %v", err)
+		var alert models.AlertResponse
+		var labels, annotations []byte
+		err := rows.Scan(&alert.Id, &alert.Name, &alert.Status, &labels, &annotations, &alert.StartsAt, &alert.EndsAt, &alert.GeneratorURL, &alert.Fingerprint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan alert row: %v", err)
 		}
-		alerts = append(alerts, alert)
-	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("row iteration error: %v", err)
+		// Unmarshal JSON fields into maps
+		if err := json.Unmarshal(labels, &alert.Labels); err != nil {
+			return nil, fmt.Errorf("failed to parse labels JSON: %v", err)
+		}
+		if err := json.Unmarshal(annotations, &alert.Annotations); err != nil {
+			return nil, fmt.Errorf("failed to parse annotations JSON: %v", err)
+		}
+
+		alerts = append(alerts, alert)
 	}
 
 	return alerts, nil

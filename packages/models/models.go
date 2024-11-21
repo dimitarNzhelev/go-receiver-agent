@@ -13,6 +13,18 @@ type Alert struct {
 	Fingerprint  string            `json:"fingerprint"`
 }
 
+type AlertResponse struct {
+	Id           int               `json:"id"`
+	Name         string            `json:"alert_name"`
+	Status       string            `json:"status"`
+	Labels       map[string]string `json:"labels"`
+	Annotations  map[string]string `json:"annotations"`
+	StartsAt     time.Time         `json:"start_time"`
+	EndsAt       time.Time         `json:"end_time"`
+	GeneratorURL string            `json:"generatorURL"`
+	Fingerprint  string            `json:"fingerprint"`
+}
+
 // AlertmanagerPayload represents the payload sent by Alertmanager.
 type AlertmanagerPayload struct {
 	Receiver          string            `json:"receiver"`
