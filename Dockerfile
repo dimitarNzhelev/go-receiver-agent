@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o receiver-agent
+RUN CGO_ENABLED=0 GOOS=linux go build -o receiver-agent cmd/main.go
 
 # Final stage
 FROM alpine:3.19

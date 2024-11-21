@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"main/packages/alertmanager"
+	"main/packages/config"
+	"main/packages/kubernetes"
+	"main/packages/utils"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,13 +14,18 @@ import (
 )
 
 func main() {
-	port := getEnv("PORT", "5000")
-	token := os.Getenv("AUTH_TOKEN")
+	port := config.GetEnv("PORT", "5000")
+	token := config.GetEnv("AUTH_TOKEN", "")
 
-	// Create a new HTTP request multiplexer (router)
 	mux := http.NewServeMux()
-	// Register the "/alerts" route with logging and authentication middleware
-	mux.Handle("/alerts", LoggingMiddleware(AuthenticationMiddleware(http.HandlerFunc(AlertHandler), token)))
+
+	mux.Handle("GET /pods", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.PodsGETHandler), token)))
+	mux.Handle("GET /namespaces", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NamespacesGETHandler), token)))
+	mux.Handle("GET /nodes", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NodesGETHandler), token)))
+	mux.Handle("GET /deployments", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeploymentsGETHandler), token)))
+	mux.Handle("GET /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertGETHandler), token)))
+	mux.Handle("POST /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertPOSTHandler), token)))
+
 	// Define the server configuration
 	server := &http.Server{
 		Addr:         ":" + port,
@@ -50,11 +59,4 @@ func main() {
 		log.Fatalf("Server Shutdown Failed:%+v", err)
 	}
 	log.Println("Server exited properly")
-}
-
-func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return defaultValue
 }

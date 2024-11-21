@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"context"
@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"time"
+
+	"main/packages/config"
+	"main/packages/models"
 
 	_ "github.com/lib/pq"
 )
@@ -19,12 +21,12 @@ type RedshiftClient struct {
 // NewRedshiftClient creates a new AWS Redshift client
 func NewRedshiftClient() (*RedshiftClient, error) {
 
-	host := os.Getenv("REDSHIFT_HOST")
-	port := os.Getenv("REDSHIFT_PORT")
-	user := os.Getenv("REDSHIFT_USER")
-	password := os.Getenv("REDSHIFT_PASSWORD")
-	database := os.Getenv("REDSHIFT_DATABASE")
-	sslmode := os.Getenv("REDSHIFT_SSLMODE")
+	host := config.GetEnv("REDSHIFT_HOST", "")
+	port := config.GetEnv("REDSHIFT_PORT", "")
+	user := config.GetEnv("REDSHIFT_USER", "")
+	password := config.GetEnv("REDSHIFT_PASSWORD", "")
+	database := config.GetEnv("REDSHIFT_DATABASE", "")
+	sslmode := config.GetEnv("REDSHIFT_SSLMODE", "")
 
 	if host == "" || port == "" || user == "" || password == "" || database == "" || sslmode == "" {
 		return nil, fmt.Errorf("missing required Redshift configuration")
@@ -61,7 +63,7 @@ func (c *RedshiftClient) Close() error {
 }
 
 // SaveAlert saves an alert to AWS Redshift
-func (c *RedshiftClient) SaveAlert(alert Alert) error {
+func (c *RedshiftClient) SaveAlert(alert models.Alert) error {
 	// Convert maps to JSON strings
 	labelsStr, err := json.Marshal(alert.Labels)
 	if err != nil {
@@ -116,7 +118,7 @@ func (c *RedshiftClient) SaveAlert(alert Alert) error {
 	return nil
 }
 
-func (c *RedshiftClient) createTableIfNotExists() error {
+func (c *RedshiftClient) CreateTableIfNotExists() error {
 	query := `
         CREATE TABLE IF NOT EXISTS alerts (
 			id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -137,4 +139,31 @@ func (c *RedshiftClient) createTableIfNotExists() error {
 	}
 
 	return nil
+}
+
+// GetAlerts returns all alerts from AWS Redshift
+func (c *RedshiftClient) GetAlerts() ([]models.Alert, error) {
+	query := "SELECT * FROM alerts;"
+
+	rows, err := c.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve alerts: %v", err)
+	}
+	defer rows.Close()
+
+	var alerts []models.Alert
+	for rows.Next() {
+		var alert models.Alert
+		// Scan the row into the alert object
+		if err := rows.Scan(&alert.Status, &alert.Labels, &alert.Annotations, &alert.StartsAt, &alert.EndsAt, &alert.GeneratorURL, &alert.Fingerprint); err != nil {
+			return nil, fmt.Errorf("failed to scan alert: %v", err)
+		}
+		alerts = append(alerts, alert)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %v", err)
+	}
+
+	return alerts, nil
 }
