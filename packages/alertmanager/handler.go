@@ -8,19 +8,19 @@ import (
 	"net/http"
 )
 
-var redshiftClient *database.RedshiftClient
+var dorisClient *database.DorisClient
 
 func init() {
-	var err error
-	redshiftClient, err = database.NewRedshiftClient()
+	dorisClient, err := database.NewDorisClient()
 	if err != nil {
-		log.Fatalf("Failed to initialize Redshift client: %v", err)
+		log.Fatalf("failed to create Doris client: %v", err)
 	}
 
-	err = redshiftClient.CreateTableIfNotExists()
+	err = dorisClient.CreateTableIfNotExists()
 	if err != nil {
 		log.Fatalf("Failed to create table: %v", err)
 	}
+	log.Println("Doris client initialized successfully")
 }
 
 // AlertPOSTHandler processes incoming alert requests.
@@ -49,9 +49,9 @@ func AlertPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// AlertGETHandler returns all alerts from Redshift
+// AlertGETHandler returns all alerts from Apache Doris
 func AlertGETHandler(w http.ResponseWriter, r *http.Request) {
-	alerts, err := redshiftClient.GetAlerts()
+	alerts, err := dorisClient.GetAlerts()
 	if err != nil {
 		http.Error(w, "Failed to retrieve alerts", http.StatusInternalServerError)
 		log.Printf("Failed to retrieve alerts: %v", err)
@@ -66,12 +66,10 @@ func AlertGETHandler(w http.ResponseWriter, r *http.Request) {
 // processAlert handles individual alert and processes it.
 func processAlert(alert models.Alert) {
 	log.Printf("Processing alert: %s", alert.Labels["alertname"])
-
-	// Save alert to AWS Redshift
-	if err := redshiftClient.SaveAlert(alert); err != nil {
-		log.Printf("Failed to save alert to Redshift: %v", err)
+	// Save alert to Apache Doris
+	if err := dorisClient.SaveAlert(alert); err != nil {
+		log.Printf("Failed to save alert to Doris: %v", err)
 		return
 	}
-
 	log.Printf("Completed processing alert: %s", alert.Labels["alertname"])
 }
