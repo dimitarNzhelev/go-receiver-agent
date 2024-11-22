@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"main/packages/config"
 	"main/packages/models"
 	"time"
 
@@ -17,24 +18,22 @@ type DorisClient struct {
 }
 
 // FOR TESTING
-
+// host := "192.168.1.111"
+// port := "9030"
+// user := "dzhelev"
+// password := "dzhelev@123"
+// database := "dzhelev_db"
 // NewDorisClient creates a new Apache Doris client
 func NewDorisClient() (*DorisClient, error) {
 
-	// host := config.GetEnv("DORIS_HOST", "localhost")
-	// port := config.GetEnv("DORIS_PORT", "9030")
-	// user := config.GetEnv("DORIS_USER", "root")
-	// password := config.GetEnv("DORIS_PASSWORD", "root")
-	// database := config.GetEnv("DORIS_DATABASE", "test_database")
-	host := "192.168.1.111"
-	port := "9030"
-	user := "dzhelev"
-	password := "dzhelev@123"
-	database := "dzhelev_db"
+	host := config.GetEnv("DORIS_HOST", "localhost")
+	port := config.GetEnv("DORIS_PORT", "9030")
+	user := config.GetEnv("DORIS_USER", "root")
+	password := config.GetEnv("DORIS_PASSWORD", "root")
+	database := config.GetEnv("DORIS_DATABASE", "test_database")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?timeout=5s&readTimeout=5s&writeTimeout=5s&tls=false&allowNativePasswords=true",
 		user, password, host, port, database)
-	fmt.Printf("Attempting to connect with DSN: %s\n", dsn)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -63,66 +62,108 @@ func (c *DorisClient) Close() error {
 	return c.db.Close()
 }
 
-// SaveAlert saves an alert to Apache Doris (also must check if its working)
 func (c *DorisClient) SaveAlert(alert models.Alert) error {
 	// Convert maps to JSON strings
 	labelsStr, err := json.Marshal(alert.Labels)
 	if err != nil {
 		return fmt.Errorf("failed to marshal labels: %v", err)
 	}
+
 	annotationsStr, err := json.Marshal(alert.Annotations)
 	if err != nil {
 		return fmt.Errorf("failed to marshal annotations: %v", err)
 	}
 
-	query := fmt.Sprintf(`
-        INSERT INTO alerts (
-            status,
-            alert_name,
-            start_time,
-            end_time,
-            generator_url,
-            fingerprint,
-            labels,
-            annotations
-        ) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
-    `,
-		alert.Status,
-		alert.Labels["alertname"],
-		alert.StartsAt,
-		alert.EndsAt,
-		alert.GeneratorURL,
-		alert.Fingerprint,
-		string(labelsStr),
-		string(annotationsStr),
-	)
-	log.Printf("Executing query: %s", query)
-	_, err = c.db.Exec(query)
+	// Check if an alert with the same fingerprint exists
+	checkQuery := fmt.Sprintf("SELECT COUNT(*) FROM alerts WHERE fingerprint = '%s'", alert.Fingerprint)
+	var count int
+	err = c.db.QueryRow(checkQuery).Scan(&count)
 	if err != nil {
-		return fmt.Errorf("failed to save alert: %v", err)
+		return fmt.Errorf("failed to check for existing alert: %v", err)
 	}
+
+	if count > 0 {
+		// Update existing alert
+		updateQuery := fmt.Sprintf(`
+			UPDATE alerts
+			SET
+				status = '%s',
+				alert_name = '%s',
+				start_time = '%s',
+				end_time = '%s',
+				generator_url = '%s',
+				labels = '%s',
+				annotations = '%s'
+			WHERE fingerprint = '%s'
+		`,
+			alert.Status,
+			alert.Labels["alertname"],
+			alert.StartsAt.Format("2006-01-02 15:04:05"),
+			alert.EndsAt.Format("2006-01-02 15:04:05"),
+			alert.GeneratorURL,
+			string(labelsStr),
+			string(annotationsStr),
+			alert.Fingerprint,
+		)
+
+		log.Printf("Executing update query: %s", updateQuery)
+		_, err = c.db.Exec(updateQuery)
+		if err != nil {
+			return fmt.Errorf("failed to update alert: %v", err)
+		}
+		log.Printf("Updated alert with fingerprint: %s", alert.Fingerprint)
+	} else {
+		// Insert new alert
+		insertQuery := fmt.Sprintf(`
+			INSERT INTO alerts (
+				fingerprint,
+				status,
+				alert_name,
+				start_time,
+				end_time,
+				generator_url,
+				labels,
+				annotations
+			) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+		`,
+			alert.Fingerprint,
+			alert.Status,
+			alert.Labels["alertname"],
+			alert.StartsAt.Format("2006-01-02 15:04:05"),
+			alert.EndsAt.Format("2006-01-02 15:04:05"),
+			alert.GeneratorURL,
+			string(labelsStr),
+			string(annotationsStr),
+		)
+
+		log.Printf("Executing insert query: %s", insertQuery)
+		_, err = c.db.Exec(insertQuery)
+		if err != nil {
+			return fmt.Errorf("failed to insert alert: %v", err)
+		}
+		log.Printf("Inserted new alert with fingerprint: %s", alert.Fingerprint)
+	}
+
 	return nil
 }
 
-// MUST CHECK if its working
 func (c *DorisClient) CreateTableIfNotExists() error {
 	query := `
-        CREATE TABLE IF NOT EXISTS alerts (
-            fingerprint VARCHAR(255) NOT NULL,
-            id BIGINT NOT NULL,
-            status VARCHAR(255) NOT NULL,
-            alert_name VARCHAR(255) NOT NULL,
-            start_time DATETIME NOT NULL,
-            end_time DATETIME,
-            generator_url VARCHAR(1024),
-            labels STRING,
-            annotations STRING
-        )
-        UNIQUE KEY(fingerprint, id)
-        DISTRIBUTED BY HASH(fingerprint) BUCKETS 10
-        PROPERTIES (
-            "replication_num" = "1"
-        );
+		CREATE TABLE IF NOT EXISTS alerts (
+			fingerprint CHAR(255) NOT NULL,
+			status STRING NOT NULL,
+			alert_name STRING NOT NULL,
+			start_time DATETIME NOT NULL,
+			end_time DATETIME,
+			generator_url STRING,
+			labels STRING,
+			annotations STRING
+		)
+		UNIQUE KEY (fingerprint)
+		DISTRIBUTED BY HASH(fingerprint) BUCKETS 10
+		PROPERTIES (
+			"replication_num" = "1"
+		);
     `
 
 	_, err := c.db.Exec(query)
@@ -133,9 +174,11 @@ func (c *DorisClient) CreateTableIfNotExists() error {
 	return nil
 }
 
-// also must check if its working
 func (c *DorisClient) GetAlerts() ([]models.AlertResponse, error) {
-	query := `SELECT id, alert_name, status, labels, annotations, start_time, end_time, generator_url, fingerprint FROM alerts`
+	query := `
+		SELECT fingerprint, status, alert_name, start_time, end_time, generator_url, labels, annotations
+		FROM alerts
+	`
 	rows, err := c.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve alerts: %v", err)
@@ -146,9 +189,30 @@ func (c *DorisClient) GetAlerts() ([]models.AlertResponse, error) {
 	for rows.Next() {
 		var alert models.AlertResponse
 		var labels, annotations []byte
-		err := rows.Scan(&alert.Id, &alert.Name, &alert.Status, &labels, &annotations, &alert.StartsAt, &alert.EndsAt, &alert.GeneratorURL, &alert.Fingerprint)
+		var startTime, endTime string
+
+		err := rows.Scan(
+			&alert.Fingerprint,
+			&alert.Status,
+			&alert.Name,
+			&startTime,
+			&endTime,
+			&alert.GeneratorURL,
+			&labels,
+			&annotations,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan alert row: %v", err)
+		}
+
+		// Parse start and end times
+		if alert.StartsAt, err = time.Parse("2006-01-02 15:04:05", startTime); err != nil {
+			return nil, fmt.Errorf("failed to parse start_time: %v", err)
+		}
+		if endTime != "" {
+			if alert.EndsAt, err = time.Parse("2006-01-02 15:04:05", endTime); err != nil {
+				return nil, fmt.Errorf("failed to parse end_time: %v", err)
+			}
 		}
 
 		// Unmarshal JSON fields into maps
@@ -164,6 +228,10 @@ func (c *DorisClient) GetAlerts() ([]models.AlertResponse, error) {
 		}
 
 		alerts = append(alerts, alert)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
 	}
 
 	return alerts, nil

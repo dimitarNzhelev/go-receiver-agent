@@ -11,15 +11,21 @@ import (
 var dorisClient *database.DorisClient
 
 func init() {
-	dorisClient, err := database.NewDorisClient()
+	log.Println("Initializing Doris client...")
+
+	client, err := database.NewDorisClient()
 	if err != nil {
-		log.Fatalf("failed to create Doris client: %v", err)
+		log.Fatalf("Failed to initialize Doris client: %v", err)
 	}
 
-	err = dorisClient.CreateTableIfNotExists()
+	log.Println("Doris client initialized successfully")
+
+	err = client.CreateTableIfNotExists()
 	if err != nil {
 		log.Fatalf("Failed to create table: %v", err)
 	}
+
+	dorisClient = client
 	log.Println("Doris client initialized successfully")
 }
 
@@ -71,5 +77,6 @@ func processAlert(alert models.Alert) {
 		log.Printf("Failed to save alert to Doris: %v", err)
 		return
 	}
+
 	log.Printf("Completed processing alert: %s", alert.Labels["alertname"])
 }
