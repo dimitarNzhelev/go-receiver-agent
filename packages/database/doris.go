@@ -28,9 +28,9 @@ func NewDorisClient() (*DorisClient, error) {
 
 	host := config.GetEnv("DORIS_HOST", "localhost")
 	port := config.GetEnv("DORIS_PORT", "9030")
-	user := config.GetEnv("DORIS_USER", "root")
-	password := config.GetEnv("DORIS_PASSWORD", "root")
-	database := config.GetEnv("DORIS_DATABASE", "test_database")
+	user := config.GetEnv("DORIS_USER", "dzhelev")
+	password := config.GetEnv("DORIS_PASSWORD", "dzhelev@123")
+	database := config.GetEnv("DORIS_DATABASE", "dzhelev_db")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?timeout=5s&readTimeout=5s&writeTimeout=5s&tls=false&allowNativePasswords=true",
 		user, password, host, port, database)
@@ -215,17 +215,14 @@ func (c *DorisClient) GetAlerts() ([]models.AlertResponse, error) {
 			}
 		}
 
-		// Unmarshal JSON fields into maps
+		// Unmarshal labels JSON into a map
 		if len(labels) > 0 {
 			if err := json.Unmarshal(labels, &alert.Labels); err != nil {
 				return nil, fmt.Errorf("failed to parse labels JSON: %v", err)
 			}
 		}
-		if len(annotations) > 0 {
-			if err := json.Unmarshal(annotations, &alert.Annotations); err != nil {
-				return nil, fmt.Errorf("failed to parse annotations JSON: %v", err)
-			}
-		}
+
+		alert.Annotations = string(annotations)
 
 		alerts = append(alerts, alert)
 	}

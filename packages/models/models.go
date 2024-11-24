@@ -14,11 +14,10 @@ type Alert struct {
 }
 
 type AlertResponse struct {
-	Id           int               `json:"id"`
 	Name         string            `json:"alert_name"`
 	Status       string            `json:"status"`
 	Labels       map[string]string `json:"labels"`
-	Annotations  map[string]string `json:"annotations"`
+	Annotations  string            `json:"annotations"`
 	StartsAt     time.Time         `json:"start_time"`
 	EndsAt       time.Time         `json:"end_time"`
 	GeneratorURL string            `json:"generatorURL"`
