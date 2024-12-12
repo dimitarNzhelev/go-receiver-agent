@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"main/packages/config"
 	"main/packages/database"
 	"main/packages/models"
 	"net/http"
@@ -97,9 +98,10 @@ func AlertRulesGETHandler(w http.ResponseWriter, r *http.Request) {
 
 // getAlertRulesFromAlertmanager fetches alert rules from Alertmanager
 func getAlertRulesFromAlertmanager() ([]models.AlertRuleGroup, error) {
-	alertmanagerURL := "http://localhost:9090/api/v1/rules"
+	prometheusURL := config.GetEnv("PROMETHEUS_URL", "http://localhost:9090")
+	prometheusEndpoint := fmt.Sprintf("%s/api/v1/rules", prometheusURL)
 
-	resp, err := http.Get(alertmanagerURL)
+	resp, err := http.Get(prometheusEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch rules from Alertmanager: %v", err)
 	}
