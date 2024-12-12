@@ -37,3 +37,23 @@ type AlertmanagerPayload struct {
 	GroupKey          string            `json:"groupKey"`
 	TruncatedAlerts   int               `json:"truncatedAlerts,omitempty"`
 }
+
+// AlertRule represents a single alert rule.
+type AlertRule struct {
+	State          string            `json:"state"`
+	Name           string            `json:"name"`
+	Query          string            `json:"query"`
+	Duration       int               `json:"duration"`
+	Labels         map[string]string `json:"labels"`
+	Health         string            `json:"health"`
+	EvaluationTime float64           `json:"evaluationTime"`
+	LastEvaluation time.Time         `json:"lastEvaluation"`
+	Type           string            `json:"type"`
+}
+
+// AlertRuleGroup represents a group of alert rules.
+type AlertRuleGroup struct {
+	Name  string      `json:"name"`
+	File  string      `json:"file"`
+	Rules []AlertRule `json:"rules"`
+}

@@ -15,7 +15,7 @@ import (
 
 func main() {
 	port := config.GetEnv("PORT", "5000")
-	token := config.GetEnv("AUTH_TOKEN", "")
+	token := config.GetEnv("AUTH_TOKEN", "secret")
 
 	mux := http.NewServeMux()
 
@@ -25,6 +25,7 @@ func main() {
 	mux.Handle("GET /deployments", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeploymentsGETHandler), token)))
 	mux.Handle("GET /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertGETHandler), token)))
 	mux.Handle("POST /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertPOSTHandler), token)))
+	mux.Handle("GET /alerts/rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertRulesGETHandler), token)))
 
 	// Define the server configuration
 	server := &http.Server{

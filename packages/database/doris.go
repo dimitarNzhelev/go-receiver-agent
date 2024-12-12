@@ -26,7 +26,7 @@ type DorisClient struct {
 // NewDorisClient creates a new Apache Doris client
 func NewDorisClient() (*DorisClient, error) {
 
-	host := config.GetEnv("DORIS_HOST", "localhost")
+	host := config.GetEnv("DORIS_HOST", "192.168.1.111")
 	port := config.GetEnv("DORIS_PORT", "9030")
 	user := config.GetEnv("DORIS_USER", "dzhelev")
 	password := config.GetEnv("DORIS_PASSWORD", "dzhelev@123")
