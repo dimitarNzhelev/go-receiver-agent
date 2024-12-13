@@ -2,9 +2,7 @@ package alertmanager
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"main/packages/config"
 	"main/packages/database"
 	"main/packages/models"
 	"net/http"
@@ -81,48 +79,4 @@ func processAlert(alert models.Alert) {
 	}
 
 	log.Printf("Completed processing alert: %s", alert.Labels["alertname"])
-}
-
-func AlertRulesGETHandler(w http.ResponseWriter, r *http.Request) {
-	alertRules, err := getAlertRulesFromAlertmanager()
-	if err != nil {
-		http.Error(w, "Failed to retrieve alert rules", http.StatusInternalServerError)
-		log.Printf("Failed to retrieve alert rules: %v", err)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(alertRules); err != nil {
-		log.Printf("JSON encoding error: %v", err)
-	}
-}
-
-// getAlertRulesFromAlertmanager fetches alert rules from Alertmanager
-func getAlertRulesFromAlertmanager() ([]models.AlertRuleGroup, error) {
-	prometheusURL := config.GetEnv("PROMETHEUS_URL", "http://localhost:9090")
-	prometheusEndpoint := fmt.Sprintf("%s/api/v1/rules", prometheusURL)
-
-	resp, err := http.Get(prometheusEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch rules from Alertmanager: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// Define the structure matching the API response
-	var result struct {
-		Status string `json:"status"`
-		Data   struct {
-			Groups []models.AlertRuleGroup `json:"groups"`
-		} `json:"data"`
-	}
-
-	// Decode the response body
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON response: %v", err)
-	}
-
-	return result.Data.Groups, nil
 }

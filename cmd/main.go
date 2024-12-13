@@ -17,20 +17,29 @@ func main() {
 	port := config.GetEnv("PORT", "5000")
 	token := config.GetEnv("AUTH_TOKEN", "secret")
 
-	mux := http.NewServeMux()
+	if err := kubernetes.InitKubernetesClients(); err != nil {
+		log.Fatalf("Failed to initialize Kubernetes clients: %v", err)
+	}
 
-	mux.Handle("GET /pods", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.PodsGETHandler), token)))
-	mux.Handle("GET /namespaces", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NamespacesGETHandler), token)))
-	mux.Handle("GET /nodes", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NodesGETHandler), token)))
-	mux.Handle("GET /deployments", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeploymentsGETHandler), token)))
-	mux.Handle("GET /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertGETHandler), token)))
-	mux.Handle("POST /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertPOSTHandler), token)))
-	mux.Handle("GET /alerts/rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertRulesGETHandler), token)))
+	router := http.NewServeMux()
+
+	router.Handle("GET /pods", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.PodsGETHandler), token)))
+	router.Handle("GET /namespaces", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NamespacesGETHandler), token)))
+	router.Handle("GET /nodes", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.NodesGETHandler), token)))
+	router.Handle("GET /deployments", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeploymentsGETHandler), token)))
+
+	router.Handle("GET /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertGETHandler), token)))
+	router.Handle("POST /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertPOSTHandler), token)))
+
+	router.Handle("GET /rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.GetRulesHandler), token)))
+	router.Handle("POST /rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.CreateRuleHandler), token)))
+	router.Handle("PUT /rules/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.UpdateRuleHandler), token)))
+	router.Handle("DELETE /rules/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeleteRuleHandler), token)))
 
 	// Define the server configuration
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
