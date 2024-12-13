@@ -119,6 +119,11 @@ func GetRulesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handling all namespaces case by setting namespace to empty string
+	if namespace == "all" {
+		namespace = ""
+	}
+
 	rules, err := dynamicClient.Resource(prometheusRuleGVR).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch PrometheusRule objects: %v", err), http.StatusInternalServerError)
