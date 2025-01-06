@@ -24,14 +24,7 @@ COPY --from=builder /app/receiver-agent .
 RUN adduser -D appuser
 USER appuser
 
-ENV PORT=5000 \
-    AUTH_TOKEN="" \
-    DORIS_HOST="" \
-    DORIS_PORT="5439" \
-    DORIS_USER="" \
-    DORIS_PASSWORD="" \
-    DORIS_DATABASE="" \
-    PROMETHEUS_URL=""
+ENV PORT=5000
 
 EXPOSE 5000
 

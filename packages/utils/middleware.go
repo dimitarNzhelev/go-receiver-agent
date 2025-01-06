@@ -6,7 +6,6 @@ import (
 )
 
 // AuthenticationMiddleware checks the Authorization header for a valid token.
-// TODO: remove empty token bypass in AuthenticationMiddleware
 func AuthenticationMiddleware(next http.Handler, token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if token != "" {
