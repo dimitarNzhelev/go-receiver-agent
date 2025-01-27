@@ -31,6 +31,12 @@ func main() {
 	router.Handle("GET /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertGETHandler), token)))
 	router.Handle("POST /alerts", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertPOSTHandler), token)))
 
+	router.Handle("GET /alerts/firing", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertFiringGETHandler), token)))
+
+	router.Handle("GET /alerts/silences", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesGETHandler), token)))
+	router.Handle("POST /alerts/silences", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesPOSTHandler), token)))
+	router.Handle("DELETE /alerts/silences/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesDELETEHandler), token)))
+
 	router.Handle("GET /rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.GetRulesHandler), token)))
 	router.Handle("POST /rules", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.CreateRuleHandler), token)))
 	router.Handle("PUT /rules/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.UpdateRuleHandler), token)))

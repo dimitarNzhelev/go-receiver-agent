@@ -13,6 +13,35 @@ type Alert struct {
 	Fingerprint  string            `json:"fingerprint"`
 }
 
+type Silence struct {
+	ID        string    `json:"id"`
+	Matchers  []Matcher `json:"matchers"`
+	Status    Status    `json:"status"`
+	StartsAt  string    `json:"startsAt"`
+	EndsAt    string    `json:"endsAt"`
+	UpdatedAt string    `json:"updatedAt"`
+	CreatedBy string    `json:"createdBy"`
+	Comment   string    `json:"comment"`
+}
+type Status struct {
+	State string `json:"state"`
+}
+
+type Matcher struct {
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+	IsRegex bool   `json:"isRegex"`
+	IsEqual bool   `json:"isEqual"`
+}
+
+type AlertPrometheus struct {
+	State       string            `json:"state"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+	ActiveAt    time.Time         `json:"activeAt"`
+	Value       string            `json:"value"`
+}
+
 type AlertResponse struct {
 	Name         string            `json:"alert_name"`
 	Status       string            `json:"status"`

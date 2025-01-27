@@ -2,10 +2,12 @@ package alertmanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"main/packages/database"
 	"main/packages/models"
 	"net/http"
+	"strings"
 )
 
 var dorisClient *database.DorisClient
@@ -37,21 +39,20 @@ func AlertPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
-		log.Printf("JSON decoding error: %v", err)
+		http.Error(w, ErrorInvalidJSONPayload.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
 	// Process each alert asynchronously
 	for _, alert := range payload.Alerts {
-		go processAlert(alert)
+		go ProcessAlert(alert)
 	}
 
 	// Respond to Alertmanager
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
-		log.Printf("JSON encoding error: %v", err)
+		http.Error(w, ErrorInvalidJSONPayload.Error(), http.StatusUnprocessableEntity)
 	}
 }
 
@@ -59,24 +60,102 @@ func AlertPOSTHandler(w http.ResponseWriter, r *http.Request) {
 func AlertGETHandler(w http.ResponseWriter, r *http.Request) {
 	alerts, err := dorisClient.GetAlerts()
 	if err != nil {
-		http.Error(w, "Failed to retrieve alerts", http.StatusInternalServerError)
 		log.Printf("Failed to retrieve alerts: %v", err)
+		http.Error(w, ErrorFailedToRetrieve.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(alerts); err != nil {
 		log.Printf("JSON encoding error: %v", err)
+		http.Error(w, ErrorJSONEncoding.Error(), http.StatusInternalServerError)
 	}
 }
 
-// processAlert handles individual alert and processes it.
-func processAlert(alert models.Alert) {
-	log.Printf("Processing alert: %s", alert.Labels["alertname"])
-	// Save alert to Apache Doris
-	if err := dorisClient.SaveAlert(alert); err != nil {
-		log.Printf("Failed to save alert to Doris: %v", err)
+func AlertFiringGETHandler(w http.ResponseWriter, r *http.Request) {
+	firingAlerts, err := FetchFiringAlerts()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Completed processing alert: %s", alert.Labels["alertname"])
+	silences, err := FetchSilencedAlerts()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var unsilencedAlerts []models.AlertPrometheus
+	for _, alert := range firingAlerts {
+		if !IsSilenced(alert, silences) {
+			unsilencedAlerts = append(unsilencedAlerts, alert)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(unsilencedAlerts)
+}
+
+func AlertSilencesGETHandler(w http.ResponseWriter, r *http.Request) {
+	firingAlerts, err := FetchFiringAlerts()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	silences, err := FetchSilencedAlerts()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var silencedAlerts []models.AlertPrometheus
+	for _, alert := range firingAlerts {
+		if IsSilenced(alert, silences) {
+			silencedAlerts = append(silencedAlerts, alert)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(silencedAlerts)
+}
+
+func AlertSilencesPOSTHandler(w http.ResponseWriter, r *http.Request) {
+	var silence models.Silence
+	err := json.NewDecoder(r.Body).Decode(&silence)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error decoding silence: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	err = CreateSilence(silence)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error creating silence: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func AlertSilencesDELETEHandler(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		return
+	}
+	id := pathParts[len(pathParts)-1]
+
+	if id == "" {
+		http.Error(w, ErrorSilenceIDNotFound.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := DeleteSilence(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error deleting silence: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
