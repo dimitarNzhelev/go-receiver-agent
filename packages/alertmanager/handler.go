@@ -95,6 +95,17 @@ func AlertFiringGETHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(unsilencedAlerts)
 }
 
+func SilencesGETHandler(w http.ResponseWriter, r *http.Request) {
+	silences, err := FetchSilencedAlerts()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(silences)
+}
+
 func AlertSilencesGETHandler(w http.ResponseWriter, r *http.Request) {
 	firingAlerts, err := FetchFiringAlerts()
 	if err != nil {

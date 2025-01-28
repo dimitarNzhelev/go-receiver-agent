@@ -33,6 +33,7 @@ func main() {
 
 	router.Handle("GET /alerts/firing", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertFiringGETHandler), token)))
 
+	router.Handle("GET /silences", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.SilencesGETHandler), token)))
 	router.Handle("GET /alerts/silences", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesGETHandler), token)))
 	router.Handle("POST /alerts/silences", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesPOSTHandler), token)))
 	router.Handle("DELETE /alerts/silences/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(alertmanager.AlertSilencesDELETEHandler), token)))

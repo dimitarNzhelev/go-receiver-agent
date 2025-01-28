@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"main/packages/config"
 	"main/packages/models"
 	"net/http"
 	"regexp"
 )
 
+var prometheusUrl = config.GetEnv("PROMETHEUS_URL", "http://localhost:9090")
+var alertmanagerUrl = config.GetEnv("ALERTMANAGER_URL", "http://localhost:9093")
+
 func FetchFiringAlerts() ([]models.AlertPrometheus, error) {
-	resp, err := http.Get("http://localhost:9090/api/v1/alerts")
+	resp, err := http.Get(prometheusUrl + "/api/v1/alerts")
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +46,7 @@ func FetchFiringAlerts() ([]models.AlertPrometheus, error) {
 }
 
 func FetchSilencedAlerts() ([]models.Silence, error) {
-	resp, err := http.Get("http://localhost:9093/api/v1/silences")
+	resp, err := http.Get(alertmanagerUrl + "/api/v1/silences")
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +73,10 @@ func IsSilenced(alert models.AlertPrometheus, silences []models.Silence) bool {
 			matched := true
 			for _, matcher := range silence.Matchers {
 				val, ok := alert.Labels[matcher.Name]
+				fmt.Println(matcher.IsEqual)
 				if matcher.IsEqual {
+					fmt.Println(val == matcher.Value, val, matcher.Value, "ok: ", ok)
 					if !ok || val != matcher.Value {
-						// fmt.Println("alert: ", alert.Labels["alertname"], "for label: ", matcher.Name, "values: ", val, "checked: ", matcher.Value, "ok: ", ok)
 						matched = false
 						break
 					}
@@ -84,6 +89,7 @@ func IsSilenced(alert models.AlertPrometheus, silences []models.Silence) bool {
 				}
 			}
 			if matched {
+				fmt.Println("Silenced alert: ", alert.Labels["alertname"], "silenced by: ", silence.ID)
 				return true
 			}
 		}
@@ -92,7 +98,7 @@ func IsSilenced(alert models.AlertPrometheus, silences []models.Silence) bool {
 }
 
 func DeleteSilence(id string) error {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:9093/api/v1/silence/%s", id), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf(alertmanagerUrl+"/api/v1/silence/%s", id), nil)
 	if err != nil {
 		return err
 	}
@@ -122,7 +128,7 @@ func CreateSilence(silence models.Silence) error {
 	fmt.Println("Request Body:", string(body))
 
 	// Create an HTTP POST request with the JSON body
-	req, err := http.NewRequest("POST", "http://localhost:9093/api/v1/silences", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", alertmanagerUrl+"/api/v1/silences", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
