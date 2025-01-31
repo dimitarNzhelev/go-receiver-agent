@@ -119,6 +119,7 @@ func DeleteSilence(id string) error {
 
 func CreateSilence(silence models.Silence) error {
 	// Marshal the silence struct into JSON
+	silence.UpdatedAt = silence.StartsAt
 	body, err := json.Marshal(silence)
 	if err != nil {
 		return err
