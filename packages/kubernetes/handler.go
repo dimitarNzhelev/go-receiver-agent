@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"main/packages/utils"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,7 +47,7 @@ func InitKubernetesClients() error {
 func PodsGETHandler(w http.ResponseWriter, r *http.Request) {
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, "Failed to get pods", http.StatusInternalServerError)
+		utils.WriteJSONError(w, "Failed to get pods", http.StatusInternalServerError)
 		log.Printf("Failed to get pods: %v", err)
 		return
 	}
@@ -61,7 +63,7 @@ func PodsGETHandler(w http.ResponseWriter, r *http.Request) {
 func NodesGETHandler(w http.ResponseWriter, r *http.Request) {
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, "Failed to get nodes", http.StatusInternalServerError)
+		utils.WriteJSONError(w, "Failed to get nodes", http.StatusInternalServerError)
 		log.Printf("Failed to get nodes: %v", err)
 		return
 	}
@@ -77,7 +79,7 @@ func NodesGETHandler(w http.ResponseWriter, r *http.Request) {
 func NamespacesGETHandler(w http.ResponseWriter, r *http.Request) {
 	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, "Failed to get namespaces", http.StatusInternalServerError)
+		utils.WriteJSONError(w, "Failed to get namespaces", http.StatusInternalServerError)
 		log.Printf("Failed to get namespaces: %v", err)
 		return
 	}
@@ -93,7 +95,7 @@ func NamespacesGETHandler(w http.ResponseWriter, r *http.Request) {
 func DeploymentsGETHandler(w http.ResponseWriter, r *http.Request) {
 	deployments, err := clientset.AppsV1().Deployments("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, "Failed to get deployments", http.StatusInternalServerError)
+		utils.WriteJSONError(w, "Failed to get deployments", http.StatusInternalServerError)
 		log.Printf("Failed to get deployments: %v", err)
 		return
 	}
@@ -115,7 +117,7 @@ var prometheusRuleGVR = schema.GroupVersionResource{
 func GetRulesHandler(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	if namespace == "" {
-		http.Error(w, "Namespace query parameter is required", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace query parameter is required", http.StatusBadRequest)
 		return
 	}
 
@@ -126,7 +128,7 @@ func GetRulesHandler(w http.ResponseWriter, r *http.Request) {
 
 	rules, err := dynamicClient.Resource(prometheusRuleGVR).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to fetch PrometheusRule objects: %v", err), http.StatusInternalServerError)
+		utils.WriteJSONError(w, fmt.Sprintf("Failed to fetch PrometheusRule objects: %v", err), http.StatusInternalServerError)
 		log.Printf("Error fetching PrometheusRule objects: %v", err)
 		return
 	}
@@ -144,7 +146,7 @@ func CreateRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	var rule map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Invalid JSON payload", http.StatusBadRequest)
 		log.Printf("JSON decoding error: %v", err)
 		return
 	}
@@ -152,13 +154,13 @@ func CreateRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	metadata, ok := rule["metadata"].(map[string]interface{})
 	if !ok || metadata["namespace"] == "" {
-		http.Error(w, "Namespace is required in metadata", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace is required in metadata", http.StatusBadRequest)
 		return
 	}
 
 	namespace, ok := metadata["namespace"].(string)
 	if !ok || namespace == "" {
-		http.Error(w, "Namespace must be a non-empty string", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace must be a non-empty string", http.StatusBadRequest)
 		return
 	}
 
@@ -168,7 +170,7 @@ func CreateRuleHandler(w http.ResponseWriter, r *http.Request) {
 		metav1.CreateOptions{},
 	)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create PrometheusRule object: %v", err), http.StatusInternalServerError)
+		utils.WriteJSONError(w, fmt.Sprintf("Failed to create PrometheusRule object: %v", err), http.StatusInternalServerError)
 		log.Printf("Error creating PrometheusRule: %v", err)
 		return
 	}
@@ -186,13 +188,13 @@ func UpdateRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	id := strings.TrimPrefix(r.URL.Path, "/rules/")
 	if id == "" {
-		http.Error(w, "Rule ID is required in the URL", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Rule ID is required in the URL", http.StatusBadRequest)
 		return
 	}
 
 	var rule map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Invalid JSON payload", http.StatusBadRequest)
 		log.Printf("JSON decoding error: %v", err)
 		return
 	}
@@ -200,13 +202,13 @@ func UpdateRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	metadata, ok := rule["metadata"].(map[string]interface{})
 	if !ok || metadata["namespace"] == "" {
-		http.Error(w, "Namespace is required in metadata", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace is required in metadata", http.StatusBadRequest)
 		return
 	}
 
 	namespace, ok := metadata["namespace"].(string)
 	if !ok || namespace == "" {
-		http.Error(w, "Namespace must be a non-empty string", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace must be a non-empty string", http.StatusBadRequest)
 		return
 	}
 
@@ -216,7 +218,7 @@ func UpdateRuleHandler(w http.ResponseWriter, r *http.Request) {
 		metav1.UpdateOptions{},
 	)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to update PrometheusRule object: %v", err), http.StatusInternalServerError)
+		utils.WriteJSONError(w, fmt.Sprintf("Failed to update PrometheusRule object: %v", err), http.StatusInternalServerError)
 		log.Printf("Error updating PrometheusRule: %v", err)
 		return
 	}
@@ -234,19 +236,19 @@ func DeleteRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	id := strings.TrimPrefix(r.URL.Path, "/rules/")
 	if id == "" {
-		http.Error(w, "Rule ID is required in the URL", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Rule ID is required in the URL", http.StatusBadRequest)
 		return
 	}
 
 	namespace := r.URL.Query().Get("namespace")
 	if namespace == "" {
-		http.Error(w, "Namespace query parameter is required", http.StatusBadRequest)
+		utils.WriteJSONError(w, "Namespace query parameter is required", http.StatusBadRequest)
 		return
 	}
 
 	err := dynamicClient.Resource(prometheusRuleGVR).Namespace(namespace).Delete(context.TODO(), id, metav1.DeleteOptions{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to delete PrometheusRule object: %v", err), http.StatusInternalServerError)
+		utils.WriteJSONError(w, fmt.Sprintf("Failed to delete PrometheusRule object: %v", err), http.StatusInternalServerError)
 		log.Printf("Error deleting PrometheusRule: %v", err)
 		return
 	}
