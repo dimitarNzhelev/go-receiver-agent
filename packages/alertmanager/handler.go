@@ -39,7 +39,7 @@ func AlertPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&payload); err != nil {
-		http.Error(w, ErrorInvalidJSONPayload.Error(), http.StatusBadRequest)
+		WriteJSONError(w, ErrorInvalidJSONPayload.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
@@ -52,7 +52,7 @@ func AlertPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	// Respond to Alertmanager
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
-		http.Error(w, ErrorInvalidJSONPayload.Error(), http.StatusUnprocessableEntity)
+		WriteJSONError(w, ErrorInvalidJSONPayload.Error(), http.StatusUnprocessableEntity)
 	}
 }
 
@@ -61,26 +61,26 @@ func AlertGETHandler(w http.ResponseWriter, r *http.Request) {
 	alerts, err := dorisClient.GetAlerts()
 	if err != nil {
 		log.Printf("Failed to retrieve alerts: %v", err)
-		http.Error(w, ErrorFailedToRetrieve.Error(), http.StatusInternalServerError)
+		WriteJSONError(w, ErrorFailedToRetrieve.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(alerts); err != nil {
 		log.Printf("JSON encoding error: %v", err)
-		http.Error(w, ErrorJSONEncoding.Error(), http.StatusInternalServerError)
+		WriteJSONError(w, ErrorJSONEncoding.Error(), http.StatusInternalServerError)
 	}
 }
 
 func AlertFiringGETHandler(w http.ResponseWriter, r *http.Request) {
 	firingAlerts, err := FetchFiringAlerts()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	silences, err := FetchSilencedAlerts()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -98,7 +98,7 @@ func AlertFiringGETHandler(w http.ResponseWriter, r *http.Request) {
 func SilencesGETHandler(w http.ResponseWriter, r *http.Request) {
 	silences, err := FetchSilencedAlerts()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -109,13 +109,13 @@ func SilencesGETHandler(w http.ResponseWriter, r *http.Request) {
 func AlertSilencesGETHandler(w http.ResponseWriter, r *http.Request) {
 	firingAlerts, err := FetchFiringAlerts()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error fetching firing alerts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	silences, err := FetchSilencedAlerts()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error fetching silences: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -134,13 +134,13 @@ func AlertSilencesPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	var silence models.Silence
 	err := json.NewDecoder(r.Body).Decode(&silence)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error decoding silence: %v", err), http.StatusBadRequest)
+		WriteJSONError(w, fmt.Sprintf("Error decoding silence: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	err = CreateSilence(silence)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error creating silence: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error creating silence: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -151,19 +151,19 @@ func AlertSilencesPOSTHandler(w http.ResponseWriter, r *http.Request) {
 func AlertSilencesDELETEHandler(w http.ResponseWriter, r *http.Request) {
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		WriteJSONError(w, "Invalid URL path", http.StatusBadRequest)
 		return
 	}
 	id := pathParts[len(pathParts)-1]
 
 	if id == "" {
-		http.Error(w, ErrorSilenceIDNotFound.Error(), http.StatusBadRequest)
+		WriteJSONError(w, ErrorSilenceIDNotFound.Error(), http.StatusBadRequest)
 		return
 	}
 
 	err := DeleteSilence(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error deleting silence: %v", err), http.StatusInternalServerError)
+		WriteJSONError(w, fmt.Sprintf("Error deleting silence: %v", err), http.StatusInternalServerError)
 		return
 	}
 

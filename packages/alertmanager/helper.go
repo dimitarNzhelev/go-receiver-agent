@@ -164,3 +164,12 @@ func ProcessAlert(alert models.Alert) {
 
 	log.Printf("Completed processing alert: %s", alert.Labels["alertname"])
 }
+
+func WriteJSONError(w http.ResponseWriter, msg string, code int) {
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    false,
+		"error":      msg,
+		"statusCode": code,
+	})
+}
