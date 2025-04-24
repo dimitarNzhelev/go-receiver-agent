@@ -43,6 +43,9 @@ func main() {
 	router.Handle("PUT /rules/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.UpdateRuleHandler), token)))
 	router.Handle("DELETE /rules/{id}", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(kubernetes.DeleteRuleHandler), token)))
 
+	// Add the new PromQL validation route
+	router.Handle("POST /validate/promql", utils.LoggingMiddleware(utils.AuthenticationMiddleware(http.HandlerFunc(utils.PromQLValidationHandler), token)))
+
 	// Define the server configuration
 	server := &http.Server{
 		Addr:         ":" + port,
