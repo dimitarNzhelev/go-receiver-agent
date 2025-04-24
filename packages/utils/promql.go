@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"main/packages/config"
 )
 
 type PromQLValidationResponse struct {
@@ -36,7 +37,7 @@ func PromQLValidationHandler(w http.ResponseWriter, r *http.Request) {
 	prometheusUrl := config.GetEnv("PROMETHEUS_URL", "http://localhost:9090")
 	
 	// Create the validation URL
-	validateURL, err := url.Parse(prometheusURL + "/api/v1/query")
+	validateURL, err := url.Parse(prometheusUrl + "/api/v1/query")
 	if err != nil {
 		http.Error(w, "Invalid Prometheus URL", http.StatusInternalServerError)
 		return
